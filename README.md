@@ -1,2 +1,2 @@
 # IntoRobot
-through this arduino lib, you can connect to the IntoRobot cloud
+You can connect Ardunio or Arduino Yun to IntoRobot Cloud with this library.
