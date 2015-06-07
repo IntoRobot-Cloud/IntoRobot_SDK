@@ -49,22 +49,29 @@ struct _callbacklist
     int total_callbacks;
 };
 
-#define INTOROBOT_DEBUG_BUFFER_SIZE 256       //intorobot  api  debug buffer
+#define Cloud_DEBUG_BUFFER_SIZE 128
 
+typedef struct 
+{
+    unsigned char buffer[Cloud_DEBUG_BUFFER_SIZE];
+    volatile unsigned int head;
+    volatile unsigned int tail;
+} Cloud_Debug_Buffer;
 
 class IntorobotClass: public Print
 {
     private:
-        uint8_t debug_buffer[INTOROBOT_DEBUG_BUFFER_SIZE];
-        uint32_t debug_ptr_in;
-        uint32_t debug_ptr_out;
+        Cloud_Debug_Buffer  Debug_tx_buffer;
+        Cloud_Debug_Buffer  Debug_rx_buffer;
 		bool _verbose;
 
         MqttClientClass ApiMqttClient;
 
         void sendDebug(void);
+        void receiveDebug(uint8_t *pIn, uint32_t len);
         void fill_mqtt_topic(String &fulltopic, const char *topic, const char *device_id);
         void resubscribe(void);
+        void SystemDebugCallback(uint8_t *payload, uint32_t len);
 
         virtual size_t write(uint8_t byte);
         using Print::write; // pull in write(str) and write(buf, size) from Print
@@ -85,6 +92,8 @@ class IntorobotClass: public Print
         void process(void);
         size_t printf(const char *fmt, ...);
 		void verbose(boolean);
+        int read(void);
+        int available(void);
 };
 	
 #ifdef __cplusplus
