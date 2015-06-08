@@ -19,8 +19,7 @@ this example is writted for arduino Yun
 //intorobot topic
 #define CMD_LIGHTSWITCH "channel/lightSwitch_0/cmd/switch" 
 #define DATA_LIGHTSTATE  "channel/lightSwitch_0/data/light"
-//const char *device_id = "5565ec004b35d0b466000001";
-//const char *access_token = "ncgII7Tj4XKt3ERH1W+Xt66anI0=";
+
 const char *device_id = "your_device_id";         //device id, get from the IntoRobot Cloud
 const char *access_token = "your_access_token";  //access token, get from the IntoRobot Cloud
 YunClient yunClient;
@@ -30,7 +29,6 @@ void setup()
 {
     // Open serial communications and wait for port to open:
     Serial.begin(9600);
-    while (!Serial);
     
     // Bridge startup
     pinMode(13, OUTPUT);

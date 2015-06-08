@@ -58,20 +58,17 @@ typedef struct
     volatile unsigned int tail;
 } Cloud_Debug_Buffer;
 
+
 class IntorobotClass: public Print
 {
     private:
-        Cloud_Debug_Buffer  Debug_tx_buffer;
-        Cloud_Debug_Buffer  Debug_rx_buffer;
-		bool _verbose;
+        bool _verbose;
 
         MqttClientClass ApiMqttClient;
 
         void sendDebug(void);
-        void receiveDebug(uint8_t *pIn, uint32_t len);
         void fill_mqtt_topic(String &fulltopic, const char *topic, const char *device_id);
         void resubscribe(void);
-        void SystemDebugCallback(uint8_t *payload, uint32_t len);
 
         virtual size_t write(uint8_t byte);
         using Print::write; // pull in write(str) and write(buf, size) from Print
@@ -105,6 +102,8 @@ CB getsubcallback(char * fulltopic);
 void addsubcallback(char *topic, char *device_id, void (*callback)(uint8_t*, uint32_t), uint8_t qos);
 void delsubcallback(char * topic, char *device_id);
 void ApiMqttClientCallBack(char *topic, uint8_t *payload, uint32_t length);
+void SystemDebugCallback(uint8_t *payload, uint32_t len);
+
 
 #ifdef __cplusplus
 } /* end of extern "C" */

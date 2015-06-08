@@ -52,6 +52,9 @@
 #define INTOROBOT_MQTT_SENDBUGTOPIC   "firmware/default/info/debug"
 #define INTOROBOT_MQTT_SENDDEBUGQOS     0
 
+//receive debug 
+#define INTOROBOT_MQTT_RECDEBUGTOPIC   "firmware/default/action/debug"
+#define INTOROBOT_MQTT_RECDEBUGQOS     0
 
 
 volatile uint8_t INTOROBOT_CLOUD_CONNECT = 1;     //default connect platform system
@@ -61,6 +64,8 @@ volatile uint8_t INTOROBOT_CLOUD_RECONNECT = 0;   //whether reconnected
 const char *intorobot_device_id;      //user device_id
 const char *intorobot_access_token;   //user acces_token
 struct _callbacklist callbacklist;
+Cloud_Debug_Buffer  IntoRobot_Debug_tx_buffer;
+Cloud_Debug_Buffer  IntoRobot_Debug_rx_buffer;
 
 /*********************************************************************************
   *Function		:   IntorobotClass::IntorobotClass(void)    
@@ -74,11 +79,8 @@ struct _callbacklist callbacklist;
 **********************************************************************************/
 IntorobotClass::IntorobotClass(const char *device_id, const char *access_token, Client& mqttclient)
 {
-    Cloud_Debug_Buffer  Debug_tx_buffer;
-    Cloud_Debug_Buffer  Debug_rx_buffer;
-	
-	memset(&Debug_tx_buffer,0,sizeof(Debug_tx_buffer));
-    memset(&Debug_rx_buffer,0,sizeof(Debug_rx_buffer));
+	memset(&IntoRobot_Debug_tx_buffer,0,sizeof(IntoRobot_Debug_tx_buffer));
+    memset(&IntoRobot_Debug_rx_buffer,0,sizeof(IntoRobot_Debug_rx_buffer));
 
 	_verbose = false;
     
@@ -333,9 +335,21 @@ void IntorobotClass::process(void)
                 publish(INTOROBOT_MQTT_INFOTOPIC, (uint8_t*)temp, strlen(temp),false);
 
                 //subscibe default topic
-                if(INTOROBOT_CLOUD_RECONNECT==1)
+                if(INTOROBOT_CLOUD_RECONNECT==0)
+                {
+                    if (_verbose) 
+                    {
+                        Serial.println("cloud connect first");
+                    }
+                    subscribe(INTOROBOT_MQTT_RECDEBUGTOPIC, NULL, SystemDebugCallback);
+                }
+                else  //resubscribe topic
                 {
                     INTOROBOT_CLOUD_RECONNECT = 0;
+                    if (_verbose) 
+                    {
+                        Serial.println("cloud reconnected ");
+                    }
                     resubscribe();
                 }
 
@@ -421,41 +435,15 @@ void IntorobotClass::sendDebug(void)
     u32 n;
     String s_debug_info="";
 
-    for(n=0; (n<MQTT_MAX_PACKET_SIZE)&&(Debug_tx_buffer.tail!=Debug_tx_buffer.head); n++)
+    for(n=0; (n<MQTT_MAX_PACKET_SIZE)&&(IntoRobot_Debug_tx_buffer.tail!=IntoRobot_Debug_tx_buffer.head); n++)
     {
-        s_debug_info += (char)Debug_tx_buffer.buffer[Debug_tx_buffer.tail];
-        Debug_tx_buffer.tail = (unsigned int)(Debug_tx_buffer.tail + 1) % Cloud_DEBUG_BUFFER_SIZE;
+        s_debug_info += (char)IntoRobot_Debug_tx_buffer.buffer[IntoRobot_Debug_tx_buffer.tail];
+        IntoRobot_Debug_tx_buffer.tail = (unsigned int)(IntoRobot_Debug_tx_buffer.tail + 1) % Cloud_DEBUG_BUFFER_SIZE;
     }
 
     if(n)
     {
         publish(INTOROBOT_MQTT_SENDBUGTOPIC, (uint8_t *)s_debug_info.c_str(), n, false);
-    }
-}
-
-/*********************************************************************************
-  *Function		:    void IntorobotClass::receiveDebug(void)
-  *Description	:    send debug info to the platform system
-  *Input		      :          
-  *Output		:         
-  *Return		:        
-  *author		:        
-  *date			:           
-  *Others		:         
-**********************************************************************************/
-void IntorobotClass::receiveDebug(uint8_t *pIn, uint32_t len)
-{
-    u32 n;
-    
-    for( n=0; n<len; n++)
-    {
-        Debug_rx_buffer.buffer[Debug_rx_buffer.head] = pIn[n];   
-        Debug_rx_buffer.head++;
-        /* To avoid buffer overflow */
-        if(Debug_rx_buffer.head == Cloud_DEBUG_BUFFER_SIZE)
-        {
-            Debug_rx_buffer.head = 0;
-        }
     }
 }
 
@@ -494,12 +482,12 @@ void IntorobotClass::fill_mqtt_topic(String &fulltopic, const char *topic, const
 **********************************************************************************/
 size_t IntorobotClass::write(uint8_t byte)
 {
-    Debug_tx_buffer.buffer[Debug_tx_buffer.head] = byte;   
-    Debug_tx_buffer.head++;
+    IntoRobot_Debug_tx_buffer.buffer[IntoRobot_Debug_tx_buffer.head] = byte;   
+    IntoRobot_Debug_tx_buffer.head++;
     /* To avoid buffer overflow */
-    if(Debug_tx_buffer.head == Cloud_DEBUG_BUFFER_SIZE)
+    if(IntoRobot_Debug_tx_buffer.head == Cloud_DEBUG_BUFFER_SIZE)
     {
-        Debug_tx_buffer.head = 0;
+        IntoRobot_Debug_tx_buffer.head = 0;
     }
     return 1;
 }
@@ -517,14 +505,14 @@ size_t IntorobotClass::write(uint8_t byte)
 int IntorobotClass::read(void)
 {
     // if the head isn't ahead of the tail, we don't have any characters
-    if (Debug_rx_buffer.head == Debug_rx_buffer.tail)
+    if (IntoRobot_Debug_rx_buffer.head == IntoRobot_Debug_rx_buffer.tail)
     {
         return -1;
     }
     else
     {
-        unsigned char c = Debug_rx_buffer.buffer[Debug_rx_buffer.tail];
-        Debug_rx_buffer.tail = (unsigned int)(Debug_rx_buffer.tail + 1) % Cloud_DEBUG_BUFFER_SIZE;
+        unsigned char c = IntoRobot_Debug_rx_buffer.buffer[IntoRobot_Debug_rx_buffer.tail];
+        IntoRobot_Debug_rx_buffer.tail = (unsigned int)(IntoRobot_Debug_rx_buffer.tail + 1) % Cloud_DEBUG_BUFFER_SIZE;
         return c;
     }
 }
@@ -541,7 +529,7 @@ int IntorobotClass::read(void)
 **********************************************************************************/
 int IntorobotClass::available(void)
 {
-    return (unsigned int)(Cloud_DEBUG_BUFFER_SIZE + Debug_rx_buffer.head - Debug_rx_buffer.tail) % Cloud_DEBUG_BUFFER_SIZE;
+    return (unsigned int)(Cloud_DEBUG_BUFFER_SIZE + IntoRobot_Debug_rx_buffer.head - IntoRobot_Debug_rx_buffer.tail) % Cloud_DEBUG_BUFFER_SIZE;
 }
 
 /*********************************************************************************
@@ -562,26 +550,6 @@ void IntorobotClass::resubscribe(void)
         subscribe(callbacklist.callbacknode[i].topic, callbacklist.callbacknode[i].device_id, 
         callbacklist.callbacknode[i].callback, callbacklist.callbacknode[i].qos);
     }
-}
-
-/*********************************************************************************
-  *Function		:     system reset
-  *Description	:     server control system reset
-  *Input		      :     payload:  the point of payload   len
-                               len: the len of payload
-  *Output		:     none
-  *Return		:     none
-  *author		:     robin
-  *date			:     2015-03-27      
-  *Others		:         
-**********************************************************************************/
-void IntorobotClass::SystemDebugCallback(uint8_t *payload, uint32_t len)
-{
-    if (_verbose) 
-    {
-        Serial.println("default:SystemDebugCallback");
-    }
-    receiveDebug(payload, len);
 }
 
 /*********************************************************************************
@@ -710,6 +678,30 @@ void ApiMqttClientCallBack(char *topic, uint8_t *payload, uint32_t length)
     }
 }
 
-
-
+/*********************************************************************************
+  *Function		:     system reset
+  *Description	:     server control system reset
+  *Input		      :     payload:  the point of payload   len
+                               len: the len of payload
+  *Output		:     none
+  *Return		:     none
+  *author		:     robin
+  *date			:     2015-03-27      
+  *Others		:         
+**********************************************************************************/
+void SystemDebugCallback(uint8_t *payload, uint32_t len)
+{
+    u32 n;
+    
+    for( n=0; n<len; n++)
+    {
+        IntoRobot_Debug_rx_buffer.buffer[IntoRobot_Debug_rx_buffer.head] = payload[n];   
+        IntoRobot_Debug_rx_buffer.head++;
+        /* To avoid buffer overflow */
+        if(IntoRobot_Debug_rx_buffer.head == Cloud_DEBUG_BUFFER_SIZE)
+        {
+            IntoRobot_Debug_rx_buffer.head = 0;
+        }
+    }
+}
 

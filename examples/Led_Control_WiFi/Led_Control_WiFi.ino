@@ -24,8 +24,7 @@ int status = WL_IDLE_STATUS;
 //intorobot topic
 #define CMD_LIGHTSWITCH "channel/lightSwitch_0/cmd/switch" 
 #define DATA_LIGHTSTATE  "channel/lightSwitch_0/data/light"
-//const char *device_id = "5565ec004b35d0b466000001";
-//const char *access_token = "ncgII7Tj4XKt3ERH1W+Xt66anI0=";
+
 const char *device_id = "your_device_id";         //device id, get from the IntoRobot Cloud
 const char *access_token = "your_access_token";  //access token, get from the IntoRobot Cloud
 WiFiClient wiFiclient;
@@ -36,7 +35,6 @@ void setup()
     pinMode(13, OUTPUT);  
     //Initialize serial and wait for port to open:
     Serial.begin(9600);
-    while (!Serial);
 
     // check for the presence of the shield:
     if (WiFi.status() == WL_NO_SHIELD) 
